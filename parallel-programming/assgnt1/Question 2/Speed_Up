@@ -1,0 +1,26 @@
+For Grid Size of 6000x6000
+
+Serial Execution
+-----------------
+
+Execution Time: 509.887424
+
+Parallel Execution
+-------------------.
+
+Execution Time:
+
+4 Processors: 236.416383 seconds
+
+8 Processors: 116.984346 seconds
+
+12 Processors: 111.525121 seconds
+
+Speed Up
+---------
+
+4 Processors: 2.15673473
+
+8 Processors: 4.35859533
+
+12 Processors: 4.57195132

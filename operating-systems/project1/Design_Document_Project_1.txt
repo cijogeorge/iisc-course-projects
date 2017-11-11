@@ -1,0 +1,298 @@
+1. If you have any preliminary comments on your submission, notes for
+   the TAs, or for extra credit, please give them here.
+
+   This project works fine and all 27 tests are passing in the following environment.
+ 
+   Operating System : Ubuntu 10.04
+   Kernel Version   : 2.6.32-24
+   Simulator        : qemu version: 0.12.3     
+ 
+   ---------------------------------------------------------------------------------------------------------
+
+2. Copy here the declaration of each new or changed `struct' or
+   `struct' member, global or static variable, `typedef', or
+   enumeration.  Identify the purpose of each in 25 words or less.
+   Divide your answer into multiple sections to describe new structs or
+   variables for each part of the Assignment.
+  
+   ALARM CLOCK
+  
+   file: timer.c
+   --------------
+   
+   static struct list sleeping_list;
+   /* List of threads sleeping on timer_sleep(), implemeted as an ordered queue, 
+   ordered in non-decreasing order of wake up ticks. */
+   
+   file: thread.h
+   ---------------  
+   struct thread
+   {
+     int64_t wakeup_time;
+     /* Stores the time at which a thread has to wake up. 
+     This time is calculated as timer_ticks () + ticks, where ticks is the argument 
+     passed to timer_sleep function. */
+  
+     struct list_elem sleep_elem;
+     /* This is the list element for the list sleeping_list mentioned above. 
+     Used for list functions. */
+   };
+
+   PRIORITY SCHEDULING
+   
+   file: thread.h
+   ---------------
+   struct thread
+   { 
+     int original_priority;
+     /* Stores the original_priority of the current thread,
+     if a higher priority thread donates priority to the current thread. */ 
+   
+     struct lock *wait_for_lock;
+     /* If a thread sleeps, waiting for a lock, 
+     then this pointer stores the lock that the thread is waiting for. */ 
+     
+     struct list donor_threads;
+     /* List of all the threads that have donated priority to the current thread. */
+  
+     struct list_elem ready_elem;
+     /* List element for ready_list. Used for list functions. */
+                  
+     struct list_elem synch_elem;
+     /* List element for waiters list in struct semaphore. Used for list functions. */
+   
+     struct list_elem donor_threads_elem;
+     /* List element for donor_threads list mentioned above. Used for list functions. */
+     
+   };
+   
+   file: synch.c
+   --------------  
+   struct semaphore_elem
+   {
+     int thread_priority;
+     /* Stores the priority of the lock holder of the lock which protects the condition . 
+        This is used to wake up the thread with highest priority, on condition signal */
+   };
+    
+   ADVANCED SCHEDULER
+    
+   file: thread.h
+   ---------------
+   struct thread
+   {
+     int nice;
+     /* Stores the nice value of a thread */
+
+     int recent_cpu;
+     /* Stores the recent cpu usage of the thread */
+   };
+   
+   file: thread.c
+   ---------------
+   static int load_avg;
+   /* Stores the load average on the system */
+
+   ----------------------------------------------------------------------------------------------------------
+  
+3. Briefly describe your implementation of timer_sleep() and how it
+   interacts with scheduling and how a sleeping thread gets back to
+   execution.  What is the time complexity for your implementation and
+   which thread pays for the processing time taken.
+    
+   EXPLANATION 
+   
+   When a thread calls timer_sleep (ticks), its wake up time (wakeup_time) is calculated as the sum of
+   the number of ticks elapsed (timer_ticks) and ticks. This value is stored in the thread. The thread 
+   is then added into the list sleeping_list in an ordered way (non-decreasing wake up time), such that 
+   the front of the list will always be the thread with nearest wake up time. Then thread is then blocked. 
+    
+   When a timer interrupt comes, the timer_interrupt handler will call a function (thread_wakeup()) to 
+   check if there is any thread in the sleeping_list which should be woken up at that time. This is done 
+   by comparing the current timer_ticks () with the wake up time stored in the threads. All such threads 
+   are the popped from the sleeping_list and unblocked. 
+
+   The worst case asymptotic time complexity of the implementation is O(n).
+   
+   The next thread to run (having highest priority) after the current thread sleeps, pays for the 
+   processing time taken by timer_sleep (), since it has to wait for that much more time. The thread which 
+   is currently running pays for the processing time required by timer_interrupt to check if any thread 
+   should be woken up, since this thread will be pre-empted by the interrupt handler if interrupts are not 
+   disabled by the thread.
+   
+   -----------------------------------------------------------------------------------------------------------
+
+4. Briefly describe your priority scheduling implementation details
+   and its time complexity.
+  
+   EXPLANATION
+
+   Whenever a thread is unblocked, or when a thread yields, it is just pushed into the back of the 
+   ready_list. When the function next_thread_to_run is called by the scheduler, it takes the thread 
+   with the maximum priority from the ready_list and returns it. This takes only O(n) [O(n) for finding 
+   the maximum priority thread & O(n) for removing it from ready_list].
+   
+   When thread_unblock is called on a thread, it checks if the thread being unblocked is having higher 
+   priority than the current thread. If so, the current thread yields the CPU after unblocking the
+   higher priority thread. 
+ 
+   When thread_set_priority is called by a thread, it checks if the new priority is lower than the 
+   priority of the maximum priority thread in ready_list. If so, the current thread yields CPU after
+   setting the new priority. This will take O(n) to search in the ready_list.
+
+   While sema_down is done by the thread either directly on a semaphore or while acquiring locks, 
+   if the thread has to sleep, it will be pushed into the waiters list at the back. When sema_up is
+   called on the same semaphore, the thread with maximum priority in the waiters list will given access.
+   This requires a search in the waiters list taking O(n).
+
+   For condition wait, the elements of struct semaphore_elem are added to the waiters list in struct 
+   condition. A new struct element is added to this struct semaphore_elem called thread_priority.
+   This stores the priority of the lock holder of the lock that protects a condition & waiting for the 
+   condition signal. When condition signal arrives, the lock holder with maximum priority is given access.
+   This requires searching in the list waiters, based on thread_priority and takes O(n) time.
+ 
+   From the explanation, it is evident the the worst case time complexity of the implementation if O(n).
+
+-------------------------------------------------------------------------------------------------------------  
+
+5. Briefly describe your priority donation implementation details and
+   its resulting time complexity for locks (both for acquire and
+   release operations).
+   
+   EXPLANATION
+
+   Lock Acquire:
+   --------------
+   When a thread tries to acquire a lock and the lock is currently held by some other thread, it checks
+   if its priority is higher than the priority of the lock holder. If so it stores the lock for which
+   it is waiting for in wait_for_lock in its thread structure, and push itself into the list of donor
+   threads in the thread structure of the lock holder. 
+   
+   So, each thread will have the list of all threads who have donated priority to it, if any and also the 
+   lock for which the thread is waiting for, if any.
+
+   Then the thread donates its priority to the lock holder. The lock holder will store its original priority
+   in its thread structure (original_priority), if not already stores due to some other previous donation.
+   
+   Now if the lock holder is again waiting for another lock which is held by some other thread, it will 
+   donate its newly acquired priority to that thread and the process goes on until no more donations are 
+   required. This process is done by recursive calls to priority_donate_chain. This will have a time 
+   complexity of O(n).
+
+   Lock Release:
+   --------------
+   When a thread wants to release a lock, it checks if there was any priority donation that the thread had
+   got. This can be checked by seeing if the list of donor threads is empty and if original_priority is -1. 
+   If it had received some donation, then it checks the waiters list of the semaphore associated with the 
+   lock, and see if any thread in that list is present in the donors list of the current thread. If so, such 
+   threads are removed from the donors list, since their donations are no more required. This process will 
+   have a time complexity of O(n^2).
+  
+   Once all such threads are removed from the donors list, the priority of maximum priority thread in the 
+   donors list is set as the priority of the current thread. If no threads are left in the donors list, it
+   means there are no more donations existing and hence the priority of the thread is set to original 
+   priority.
+  
+   Worst case time complexity will be O(n) for Lock Acquire & O(n^2) for Lock Release.
+
+--------------------------------------------------------------------------------------------------------------
+   
+6. Briefly describe about your MLFS implementation details.
+
+   Fixed-point Arithmetic Operations:
+   ----------------------------------- 
+   For this, fixed point arithmetic operations are implemented in the file fixed-point.c and interface is given
+   to these operations as function prototypes in the file fixed-point.h. This is implemented using the help
+   of the table given in pintos documentation.
+  
+   Calculating Load Average:
+   --------------------------
+   The following formula is used to calculate load average.
+
+   load_avg = (59/60)*(current value of load_avg) + (1/60)*ready_threads
+  
+   Here ready_threads is the number of threads in all_list other than idle_thread whose status is either
+   THREAD_READY or THREAD_RUNNING.
+
+   Fixed-point arithmetic implementation is used for doing the calculations.
+
+   Calculating Recent CPU:
+   ------------------------
+   The following formula is used to calculate recent_cpu.
+   
+   recent_cpu = (2*load_avg )/(2*load_avg + 1) * (current value of recent_cpu) + nice
+    
+   Fixed-point arithmetic implementation is used for doing the calculations.
+  
+   Calculating Priority:
+   ----------------------
+   The following formula is used to calculate thread priority.
+   
+   priority = PRI_MAX - (recent_cpu / 4) - (nice * 2)
+   
+   Fixed-point arithmetic implementation is used for doing the calculations.
+ 
+   EXPLANATION
+   
+   When a thread is created and initialized, if thread_mlfqs is set, then its nice, recent_cpu & priority 
+   values are set as 0 if the new thread is the idle thread and if it is not the idle thread, then nice &
+   recent_cpu values are inherited from the current thread and priority is calculated using these values.
+   Priority of the new thread is set as the priority argument passed to init_thread, only if thread_mlfqs 
+   is not set. Otherwise, this argument is ignored and priority is calculated. 
+   
+   Every time a timer interrupt occurs, the following are done.
+   
+   * recent_cpu is incremented by 1, if current thread is not the idle thread.
+   * If it is an end of a second (i.e if timer_ticks () % TIMER_FREQ == 0), then load_avg of the system
+     is calculated as mentioned before. Also, the recept_cpu is calculated as mentioned before for all 
+     the threads in all_list and updated in their respective thread structures.
+   * If it is the end of the 4th tick since last recalculation (i.e if timer_ticks () % 4 == 0), then
+     priority is calculated for each thread in all_list as mentioned above and updated in their respective
+     thread structures.
+
+   When thread_set_nice is used to assign a nice value to the current thread, it first asserts that the 
+   new nice value is in the valid range of -20 to 20. Then it updates the nice value in its thread structure
+   and recalculates its priority. If the new priority is found to be lesser than the priority of the 
+   maximum priority thread in ready_list, then the current thread yields the CPU.
+   
+   Function thread_get_load_avg returns 100 times the load_avg of the system.
+   Function thread_get_recent_cpu returns 100 times the recent_cpu of the current thread.
+   Function thread_get_nice returns the nice value of the current thread.
+ 
+   Assertion !thread_mlfqs is given for all the functions which are used by the previous priority scheduler
+   implementation that changes priority of a thread. This makes sure that nobody can explicitly change the 
+   priority of any thread when the advanced scheduler is being used.
+
+   ------------------------------------------------------------------------------------------------------------  
+
+7. Critique your design, pointing out advantages and disadvantages in
+   your design choices.  Use multiple sections to describe each part
+   of the assignment as necessary.
+   
+   ADVANTAGES
+ 
+   * Ordered list is used in Alarm Clock because insertion will take only O(n) and popping of all the threads
+     whose time has come to wake up will take only O(1). If an unordered list is used here, insertion
+     will take only O(1). But deletion will take more than O(n).
+
+   * Ordered list is not used for priority scheduling and for donors list as in case of Alarm Clock, since 
+     there are chances of priority getting changed due to priority donation. So if an ordered list is used, 
+     priority donation might make the list unordered, hence either requiring an O(n) search every time the 
+     highest priority thread should be selected, or an O(n log n) to sort the list. Since an O(n) search is 
+     unavoidable, by not using an ordered list, we can make the complexity of inserting into the list O(1). 
+     It will be O(n) if ordered list is used.
+
+   DISADVANTAGES
+   
+   * Lock Release has a worst case time complexity of O(n^2).
+
+   -------------------------------------------------------------------------------------------------------------
+
+   DONE BY
+ 
+   Cijo George
+   5510-210-101-07980
+   M.Sc.Engg - SERC
+
+
+

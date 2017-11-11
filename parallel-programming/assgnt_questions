@@ -1,0 +1,37 @@
+Collective Communications and 2-D Jacobi using Cartesian Topology
+Due: February 3, 2011
+Implement reduce using "Binary Blocks" algorithm as described in the paper "Optimization of Collective Communication Operations in MPICH" by Thakur, Rabenseifner and Gropp, IJHPCA 2005. Compare the performance of your collective (by timing the collective) with the performance of the default MPI implementation (i.e. MPI_Reduce) for different message sizes (1K, 2K, 4K, 8K, 16K, 32K, 64K, 128K, 256K, 1M Bytes) and plot graphs of execution times vs message sizes. Do this assignment on 4, 8 and 12 processors.
+Implement 2-D Jacobi problem (described in the class) using 2-D cartesian topology. Obtain speedups on 4 (2x2), 8(2x4) and 12 (3x4)processors for grid size of 6000x6000.
+
+CUDA Programming and Optimization
+Due: March 3, 2011
+Implement an efficient parallel sorting algorithm on GPU using CUDA. Your GPU kernel function will take an input array of numbers and produce an output sorted array. Obtain speedup for different array sizes by comparing with the performance of a sequential quick sort algorithm executed on CPU. For quick sort, you may use a third-party code instead of implementing yourself. For array sizes, find out the maximum array size that can be accommodated on the device memory and obtain speedups for 5 different equally spaced array sizes up to this maximum array size
+Illustrated the performance benefits of the following optimizations on GPU with a vector addition program (addition of 2 vectors)
+block sizes as a multiple of warp size (i.e. all warps fully populated) and
+coalesced memory access
+
+Parallel Subcolumn Cholesky
+Due: March 23, 2011
+Given a symmetric sparse matrix, perform subtree-subcube mapping of columns to processors, and implement an efficient parallel subcolum Cholesky factorization with compute-ahead. The input to your problem is the sparse matrix in compressed row format, and the output is the Cholesky factored matrix. The three steps are subtree-subcube mapping, symbolic factorization to accommodate fill-ins, and subcolumn Cholesky. Note: No need to do ordering of the matrix. Find the speedup of your parallel program with respect to a sequential subcolumn Cholesky factorization for 5 different random sparse matrices and for 4, 8, 16 and 32 processors. Plot the graphs.
+
+Load Balancing for n-body simulations
+Due: April 14, 2011
+In this assignment, you will be evaluating the time for performing Morton ordering based load balancing for n-body simulations. For this assignment, you will be starting with a non-uniform distribution of particles across a 2D domain. In each iteration (time step), you will randomly change the position of each particle to within a radius, d, from its original position and ensuring the particle remains in the 2D domain (i.e. it does not fall off or go beyond the domain when moving!). You can divide the domain into 64x64 subdomains and follow Morton ordering of the subdomains. At the end of the iteration, your program will be doing load balancing based on the ordering by moving/shifting particles between the processors as explained in the class. Find out the time taken for performing the load balancing including the time for deciding which subdomain belongs to which processor, and the time for moving the particles between the processors. For a given number of particles, N, find out the total time taken for load balancing for all the time steps (use 20 time steps), and find out the average of these total times for 10 different non-uniform distributions of the N particles. Plot a graph of the load balancing time for 5 different values of N - 10000, 20000, 30000, 40000 and 50000.
+Implement this assignment on the IBM cluster using up to 32 processors.
+Use MPI
+For details on the Morton ordering based scheme, read section 3.3.2 of the paper by Grama, Kumar and Samah (see reading material)
+
+
+Parallel Job Scheduling
+Due: May 3, 2011
+In this assignment, you will be using Lookahead Optimizing Scheduler (LOS) for scheduling jobs. The input file contains a list of 50 jobs submitted to a parallel system of 512 processors. Each line in the file represents a job and contains the requested number of processors, the user estimated runtime, submission time, and actual running time of the job in the same order. Initially, all the 512 processors in the system are free for executing the job. You will use the LOS for assigning an initial set of jobs, and removing this initial set from the queue. After then, whenever a job finishes execution, you will invoke the LOS to make the next assignment, remove this next set from the queue and so on.
+
+Few points to note:
+
+When you invoke LOS after a job completes at time t, you should consider only those jobs that have been submitted/entered the queue before t.
+The LOS algorithm will be using the user estimated time, but the jobs will complete based on the actual running time.
+Calculate the total utilization of processors as (numerator/denominator) where
+
+denominator - (the total time from the start to the end when all the jobs finish execution) x 512 procs
+numerator - sum over all 512 processors (time out of total time a processor was used for execution of jobs
+

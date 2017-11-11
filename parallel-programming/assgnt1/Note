@@ -1,0 +1,8 @@
+Notes:
+-------
+
+* Binary Blocks Implementation could not be tested for 1 MB Message Size, 
+  since the program is getting aborted due to some reason when I give size >= 1 MB.
+
+* Each Execution Times used for Binary Blocks Evaluation is obtained as an average 
+  of 5 observed execution times.

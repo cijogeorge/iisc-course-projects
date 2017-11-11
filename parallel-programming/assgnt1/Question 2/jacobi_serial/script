@@ -1,0 +1,5 @@
+# !/bin/sh
+#PBS -lselect=1:ncpus=1:mpiprocs=1
+#PBS -q q_vss
+
+mpirun -n 1 ~/programs/jacobi_serial/jacobi_serial

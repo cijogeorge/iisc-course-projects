@@ -1,0 +1,5 @@
+# !/bin/sh
+#PBS -lselect=1:ncpus=12:mpiprocs=12
+#PBS -q q_vss
+
+mpirun -n 12 ~/programs/jacobi_parallel/jacobi_parallel

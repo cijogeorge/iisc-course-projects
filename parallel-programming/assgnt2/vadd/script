@@ -1,0 +1,5 @@
+# !/bin/sh
+#PBS -l gpu=1
+#PBS -l ncpus=1
+
+/home/msc/10/seccijo/CUDA/vadd/vadd

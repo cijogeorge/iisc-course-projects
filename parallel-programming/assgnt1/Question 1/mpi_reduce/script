@@ -1,0 +1,5 @@
+# !/bin/sh
+#PBS -lselect=1:ncpus=4:mpiprocs=4
+#PBS -q q_vss
+
+mpirun -n 4 ~/programs/mpi_reduce/mpi_reduce

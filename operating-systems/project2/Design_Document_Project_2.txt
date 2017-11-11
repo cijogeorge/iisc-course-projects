@@ -1,0 +1,150 @@
+1. Explain your changes to thread struct and the rational behind each member introduced.  Explain
+   about any additional, global members introduced if any.
+ 
+   The following new members are added to the struct thread. 
+   ----------------------------------------------------------
+   struct thread
+   {
+     struct thread *parent;
+     /* To keep track of the parent process of this process. */
+
+     struct list children;
+     /* List of threads to keep track of the children of this process. */
+
+     struct semaphore wait_for_process;
+     /* This semaphore is used by those processes which has to wait for this process. 
+        It is initialised to 0. It is used in two scenarios. 
+        1. Parent process waiting for this process to load.
+        2. Parent process waiting for this process to exit. */
+
+     struct list open_files;
+     /* It is a list of elements of type struct open_fd (defined below). Used to keeo track
+        of all the files that are opened by this process. */
+
+     struct file *code_file;             
+     /* The executable file for this process. Used to deny write to the executable file. */
+
+     struct list_elem children_elem;     
+     /* List element for children list defined above. */
+
+     int exit_status;                   
+     /* To keep track of the exit status of this process. */
+   }
+   
+   Other variables and structures introduced:
+   ------------------------------------------
+
+   file: thread.h
+   ---------------
+    
+   #define DEFAULT_EXIT_STATUS -123456
+   /* A junk value used to initialize the exit_status of the process. 
+      If the value of exit_status is not DEFAULT_EXIT_STATUS or -1, it means that the process
+      has exited by calling exit system call with a valid exit_status. */
+
+   file: syscall.c
+   ----------------
+   
+   static struct open_fd
+   {
+     int fd;
+     struct file *file;
+     struct list_elem file_list_elem;
+     struct list_elem open_files_elem;
+   };
+   /* This structure is used to store elements of a file with a given file descriptor. Elements of
+      lists file_list (defined below) and open_files (defined in struct thread) are of this type. */
+
+   static struct list file_list;
+   /* To keep track of all the open files in the system. Elements are of type struct open_fd. */
+  
+   struct lock filesys_lock;
+   /* This lock is used to synchronize access to filesystem so that at a time, only one process can
+      read/write in the filesystem. */
+
+   #define MAX_FD 100;
+   /* This is the number of file descriptors available in the system for use. */
+ 
+   static bool fd_status [MAX_FD];
+   /* This array keeps track of whether a file descriptor is currently in use or not. This is useful
+      for enabling the reuse of closed file descriptors. */ 
+ 
+   -------------------------------------------------------------------------------------------------
+   
+2. Explain how do you ensure exit status of a child process is passed to its parent?  How is child 
+   thread struct is freed when a parent doesn't perform wait or is already dead?
+
+   How to ensure exit status of child is passed to its parent 
+   -----------------------------------------------------------
+  
+   * The parent process will be waiting for the exit status of the child on the semaphore by DOWNing 
+     the semaphore wait_for process in the thread structure of the child.
+   * The child calls exit system call to exit. This system call stores the exit status of the child 
+     in its thread structure member exit_status.
+   * Then it calls process_exit (). In this function, the child UPs wait_for_process semaphore.
+   * If the parent is not dead, it  blocks itself so that the parent can read its exit status 
+     from its thread struct before it really dies. This is done in process_wait function.
+   * Once the parent reads the exit status, it unblocks the child so that it can exit. 
+  
+   How is child thread struct freed when parent doesn't perform wait or is already dead
+   -------------------------------------------------------------------------------------
+   
+   * If the parent is already dead, then the child need not take care of passing its exit status
+     to the parent. In this case, the same steps mentioned above are done except that here the
+     child doesn't block itself and goes ahead with the rest of the steps in process_exit ()
+     and call thread_exit () which takes care of freeing the thread struct.
+   
+   -------------------------------------------------------------------------------------------------
+ 
+3. How do you ensure exec system call waits till child loads its executable successfully?
+   
+   * exec system call in turn calls process_execute () function. In this function, once a new thread
+     is created for the child, the parent DOWNs the wait_for_process semaphore in the child's thread
+     structure. 
+   * The child tries to load its executable and if it fails, it updates its exit_status as -1. 
+   * Then the child UPs the semaphore. Now the parent can read the exit_status in child's thread
+     structure to see if the load was successful or not. If not successful, it calls process_wait. 
+     So the process_execute function returns to exec only after getting knowing whether the child 
+     has successfully loaded its executable or not. 
+
+   -------------------------------------------------------------------------------------------------
+
+4. How do you maintain/perform per-process fd to file struct mapping? Explain how a closed fd is 
+   picked up for reuse later?
+
+   How do you maintain/perform per-process fd to file struct mapping
+   ------------------------------------------------------------------
+
+   * A list called open_files is maintained in the thread structure to keep track of all the open 
+     files for a particular process. The elements of this list are of type struct open_fd defined 
+     above. 
+   
+   Explain how a closed fd is picked for reuse later
+   --------------------------------------------------
+ 
+   * The number of available file descriptors in the system is given by MAX_FD.
+   * An array bool fd_status [MAX_FD] is maintained, if for a file descriptor fd, fd_status [fd] 
+     is 0, then fd is not in use. If it is 1, then it is in use.
+   * The array is initialized to 0 in the begining. Whenever a file descriptor is alloted, the 
+     corresponding array entry is set 1 and whenever a file descriptor is released, the 
+     corresponding array entry is set to 0.
+   * Closed file descriptors can be used by using those descriptors for which the array entry is 0.
+     
+   -------------------------------------------------------------------------------------------------
+
+5. How do you ensure synchronization between file read and write operations across multiple 
+   processes?  Are large (i.e, multi-page) read and write operations atomic w.r.t other processes,
+   and how?
+   
+   * A lock (filesys_lock) is used to synchronize access to the filesystem for read and write. The
+     lock ensures that at a time, only one process is allowed to read/write in the filesystem.
+     This ensures atomic read/write operations across multiple processes. 
+
+   -------------------------------------------------------------------------------------------------
+
+   DONE BY
+ 
+   Cijo George
+   5510-210-101-07980
+   M.Sc.Engg - SERC
+

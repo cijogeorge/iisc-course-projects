@@ -1,0 +1,97 @@
+1. Explain the layout of suppliment page table, frame table
+   datastructures, and time complexities for the operations one them.
+   For example, time complexity for picking a swap-out page? Time
+   complexity for page fault address lookup, etc.
+ 
+   The following structures are used for the frame table entries and 
+   supplimentary page table entries.
+
+   struct frame_table_entry
+   {
+     void *kpage;                   /* physical address to the frame */
+     bool occupied;                 /* whether used or not */
+   };
+
+   struct spde_t                     /* page directory entry */
+   {
+     uint32_t *pd;                   /* page directory */
+     struct list spt;                /* supplemental page table */
+     struct lock mutex;              /* the lock */
+     struct list_elem spde_elem;
+   };
+
+   struct spte_t                     /* page table entry */
+   {
+     struct frame_table_entry *fte;  /* kernel frame */
+     void *upage;                    /* virtual address */
+     struct list_elem elem;          /* list_elem in spde list */
+     struct list_elem mmap_elem;     /* list_elem in mmap list */
+     struct spde_t *spde;
+     struct swap_t *swap;            /* where it is swapped at */
+     bool mmapped;                   /* whether it is a file map or not */
+   };
+
+   struct swap_t
+   {
+     struct spte_t *page;            /* which page it refers to */
+     struct block *disk;             /* which disk to swap to */
+     block_sector_t sector;          /* sector on the disk */
+     struct file * mapped_file;      /* used for file mmap*/
+     int file_offset;		     /* used for file mmap*/
+   };
+
+   struct spde_t has a list of page table entries on which address lookup is done
+   in O(n), where n is the number of page table entries.
+   
+   A bitmap is used to represent the swap device, each bit of which is set to 0 or
+   1 depending on whether it is used or not. Finding free slot in swap device will
+   take O(n), where n is the number of slots in swap device.
+
+--------------------------------------------------------------------------------------
+
+2. Explain about swap slot allocation mechanism.  Are swap slots
+   allocated when an user page is allocated? or when it is being swapped 
+   out?  And how do you ensure that enough swap slots are available for 
+   all swappable-pages in the system?
+   
+   Swap are allocated when user page is allocated in load_segment. 
+   struct spte_t is populated in the vm_page_create function. 
+
+----------------------------------------------------------------------------------------
+
+3. Explain your swap-out page selection algorithm.
+   
+   A bitmap is used to represent the swap device, each bit of which is set to 0 or
+   1 depending on whether it is used or not. 
+
+----------------------------------------------------------------------------------------
+
+4. Explain your stack fault heuristic algorithm.
+  
+   if the fault addresses is 4 addresses below the stack pointer or if it is 32 addresses 
+   below the stack pointer, or if fault address is between PHYS_BASE and stack pointer, 
+   then a stack growth is triggered.
+
+   if (f->esp - fault_addr == 4 || f->esp - fault_addr == 32 || (fault_addr < PHYS_BASE && fault_addr >= f->esp))
+   {
+     vm_page_create (t->pagedir, t->user_stack -= PGSIZE, fs, SECTOR_ERROR);
+     return;
+   }
+
+-----------------------------------------------------------------------------------------
+
+
+5. When are pages inserted to frame table?  Are there any restrictions 
+   on what type of pages to insert?  If so, why?
+
+   They are inserted in load_segment function when it calls vm_page_create.
+
+------------------------------------------------------------------------------------------
+
+DONE BY:
+
+CIJO GEORGE
+SR NO: 5510-210-101-07980
+
+RAJATH KUMAR
+SR NO: 5510-210-101-08048
